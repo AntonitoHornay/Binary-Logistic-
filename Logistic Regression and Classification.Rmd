@@ -1,0 +1,252 @@
+---
+title: "Logistic Regression and Classification"
+author: "Antonito HC"
+date: "February 20, 2019"
+output: html_document
+---
+## Import Data
+
+```{r}
+data1 <- read.csv("E:/ADI BUANA/PELATIHAN R/binary.csv")
+attach(data1)
+str(data1)
+
+data1$admit <- as.factor(data1$admit) ## mengubah data admit ke factor
+data1$rank <- as.factor(data1$rank)   ## mengubah data admit ke factor
+str(data1)
+```
+
+
+## Two-way table contingency of factor variable
+
+```{r}
+xtabs( ~ admit + rank, data = data1)
+```
+
+
+## Explorasi data 
+
+```{r}
+summary(data1)
+```
+
+summary diatas menjelaskan bahwa student yang diterima sebanyak 127 orang dan yang tidak diterima sebanyak 273. Nilai rata2 untuk GRE adalah 587.7, nilai minimun sebesar 220 dan nilai maksimum sebesar 800. kemudian nilai minimu untuk GPA(IPK) sebesar 2.26, nilai rata2 sebesar 4.00. sedangkan student yang berasal dari sekolah rank1 sebanyak 62 orang, rank2 sebanyak 151 orang,rank3 sebanyak 121 orang dan rank4 sebanyak 67 orang. 
+
+
+### Data Set
+
+```{r}
+library(DT)
+datatable(data1)
+```
+
+
+Variabel yang digunakan adalah sebagai berikut:
+
+
+Variabel | Skala
+--------- | ----------
+Admit  | Nominal 0=Admit, 1=Not admited
+gre    | Rasio
+gpa    | Rasio
+rank   | Ordinal 1=rank1, 2=rank2, 3=rank3, 4=rank4
+
+
+## Partisi data- 80% untuk training & 20% untuk testing
+
+Partisi data dibagi menjadi 2 bagian yaitu data training dan data testing. Data training digunakan untuk membuat model dan data testing digunakan untuk mengevaluasi model yang dibuat.
+
+```{r}
+set.seed(1234)
+ind <- sample(2, nrow(data1), 
+              replace = T,
+              prob = c(0.8, 0.2))
+training <- data1[ind == 1,]
+testing <- data1[ind == 2,]
+```
+
+
+## Logistic Regression Model
+
+```{r}
+mymodel <- glm(admit ~ gre + gpa + rank,
+               data = training, family = "binomial")
+
+summary(mymodel)
+```
+
+
+## Menampilkan Nilai Odds Ratio
+
+_Odds ratio_ menunjukkan besarnya pengaruh suatu kategori terhadap kategori yang menjadi pembanding dalam suatu variabel independen. Dalam hal ini, yang menjadi pembanding adalah kategori yang terletak pada urutan pertama.
+
+
+```{r}
+exp(coef(mymodel))
+```
+
+Pada  kategori student yang berasal dari sekolah rank2 menunjukkan _Odds ratio_ sebesar 0.564. Hal ini menunjukkan bahwa kecenderungan student tersebut 0.564 kali lebih kecil dari student yang berasil dari rank1 untuk diterima di universitas. selanjutnya interpretasinya sama untuk rank3 dan rank4.
+
+
+## Prediksi
+
+```{r}
+pr1 <- predict(mymodel, training, type = "response")
+head(pr1, 10)
+
+```
+
+Output diatasmenjelaskan bahwa first applicant punya probabilitas untuk diterima tes sebesar 0.2134 (21.34%). Nilai probabilitas tersebut kurang dari 0.5 sehingga applicant tersebut tidak diterima.
+
+## Accuracy untuk data training
+
+```{r}
+
+predi1 <- ifelse(pr1>0.5,1,0)
+tabel1 <- table(Actual = training$admit, Predicted = predi1)
+tabel1
+
+```
+
+## Ketepatan klasifikasi untuk data training
+
+```{r}
+benar <- sum(diag(tabel1))/sum(tabel1)
+benar
+```
+
+Akurasi untuk data training sebesar 0.7138 atau 71.38%.
+
+## salah Klasifikasi untuk data training
+
+```{r}
+salah <- 1- benar
+salah
+```
+
+
+## Prediksi untuk data testing
+
+```{r}
+pr2 <- predict(mymodel, testing, type = "response")
+head(pr2, 10)
+```
+
+
+## Misclasifikasi untuk data testing
+
+```{r}
+predi2 <- ifelse(pr2 > 0.5, 1, 0)
+tabel2 <- table(Predicted = predi2, Actual = testing$admit)
+tabel2
+```
+
+
+## Ketepatan klasifikasi untuk data testing
+
+```{r}
+benar2 <- sum(diag(tabel2))/sum(tabel2)
+benar2
+```
+
+
+## salah Klasifikasi untuk data testing
+
+```{r}
+salah2 <- 1- benar2
+salah2
+```
+
+
+## Without Partition
+
+```{r}
+mymodel1 <- glm(admit ~ gre + gpa + rank,
+               data = data1, family = "binomial")
+summary(mymodel1)
+
+exp(coef(mymodel1))
+
+prd <- predict(mymodel1, data1, type = 'response')
+
+d <- ifelse(prd > 0.5, 1, 0)
+
+tt <- table(Actual = data1$admit, Predicted = d)
+tt
+```
+
+
+
+
+## Goodness-of-fit-test/Overall Model/(Omnibus Tests of Model Coefficients)
+
+```{r}
+with(mymodel1, pchisq(null.deviance - deviance, df.null - df.residual, lower.tail = F))
+```
+
+
+## Atau bisa pake sintax dibawah ini
+
+Hipotesi untuk uji serentak adalah:
+H~0~ beta1 = beta2 = beta3 = beta4 = 0
+H~1~ Minimal ada satu beta_i tidak sama dengan 0
+Tolak H~0~ jika nilai Ghitung lebih besar dari nilai Chi-square atau nilai p-value kurang dari alfa 5% (0.05)
+
+```{r}
+options(scripen = 999)
+chidiff1 = mymodel1$null.deviance - mymodel1$deviance
+chidiff1
+
+```
+
+```{r}
+dfdiff1 = mymodel1$df.null - mymodel1$df.residual
+dfdiff1
+
+```
+
+
+```{r}
+pchisq(chidiff1, dfdiff1, lower.tail = FALSE)
+
+```
+
+Ditunjukkan juga nilai  P-value didapatkan sebesar 0.000 yang sangat kecil dari taraf signifikan sebesar 0.05, dari pernyataan tersebut dapat diputuskan menolak H~0~ sehingga dapat disimpulkan bahwa minimal ada satu beta_i yang tidak sama dengan nol.
+
+
+## Hosmer dan Lemeshow goodness of fit / Uji Kesesuaian Model
+
+Hipotesis untuk uji kesesuaian model adalah :
+H~0~ :Model sesuai (tidak ada perbedaan antara hasil observasi dengan kemungkinan hasil prediksi model)
+H~1~ :Model tidak sesuai (ada perbedaan antara hasil observasi dengan kemungkinan hasil prediksi model)
+
+Tolak H~0~ jika _P-value_ kurang dari alfa 5% (0.05)
+
+
+```{r}
+library(ResourceSelection)
+hoslem.test(mymodel1$y, fitted(mymodel1),g=10)
+
+```
+
+Dari Output diatas dapat dilihat bahwa nilai _p-value_ yang dihasilkan sebesar 0.1967 yang lebih besar dari alfa 5% sehingga diputuskan untuk menolak H~0~ artinya model sesuai atau tidak ada perbedaan antara hasil observasi dengan kemungkinan hasil prediksi model.
+
+```{r}
+library(BaylorEdPsych)
+PseudoR2(mymodel1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
